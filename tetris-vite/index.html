@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Tetris Live Commentary</title>
+  <!-- Vite processes this import — in dev it serves it directly,
+       in production (npm run build) it bundles + hashes it -->
+  <link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+
+<h1>Tetris Live Commentary — Prototype</h1>
+<p class="sub">Valdez · Tarango · Andrade · Spring 2025 &nbsp;|&nbsp;
+Pipeline: Game State → State Encoder → Prompt Builder → Ollama LLM → Commentary</p>
+
+<!-- Ollama config -->
+<div style="display:flex; gap:8px; align-items:flex-end; margin-bottom:10px; flex-wrap:wrap;">
+  <div>
+    <label style="font-size:11px;">Ollama URL</label><br>
+    <input id="olUrl" value="http://127.0.0.1:11434" style="width:180px;">
+  </div>
+  <div>
+    <label style="font-size:11px;">Model</label><br>
+    <input id="olModel" value="deepseek-r1:8b" style="width:140px;">
+  </div>
+  <button onclick="testConnection()">Test Connection</button>
+</div>
+<div id="olStatus">Not tested yet.</div>
+
+<!-- Commentary mode toggle -->
+<div id="commentModeBox">
+  <b>Commentary mode:</b> &nbsp;
+  <label style="margin-right:12px;">
+    <input type="radio" name="commentMode" value="latest" checked onchange="setCommentMode(this.value)">
+    <b>Latest board</b> — slow Ollama. Skip queued requests, always use current board state when free.
+  </label>
+  <label>
+    <input type="radio" name="commentMode" value="queue" onchange="setCommentMode(this.value)">
+    <b>Queue</b> — fast Ollama. Queue every trigger, fire them one after another for dynamic commentary.
+  </label>
+  <div id="queueStatus"></div>
+</div>
+
+<div class="controls">
+  <button onclick="startGame()">New Game</button>
+  <button onclick="togglePause()">Pause / Resume</button>
+</div>
+<div id="gameOverMsg">GAME OVER — press New Game to restart</div>
+
+<div class="layout">
+
+  <canvas id="boardCanvas" width="200" height="400"></canvas>
+
+  <div class="panel">
+    <div class="box">
+      <h3>Next Piece</h3>
+      <canvas id="nextCanvas" width="80" height="80"></canvas>
+    </div>
+    <div class="box">
+      <h3>Stats</h3>
+      <div class="stat-row"><span class="stat-label">Score</span><span class="stat-val" id="statScore">0</span></div>
+      <div class="stat-row"><span class="stat-label">Lines</span><span class="stat-val" id="statLines">0</span></div>
+      <div class="stat-row"><span class="stat-label">Level</span><span class="stat-val" id="statLevel">1</span></div>
+      <div class="stat-row"><span class="stat-label">Max Height</span><span class="stat-val" id="statHeight">0</span></div>
+      <div class="stat-row"><span class="stat-label">Holes</span><span class="stat-val" id="statHoles">0</span></div>
+    </div>
+    <div class="box">
+      <h3>Keys</h3>
+      ← → : move<br>
+      ↑ : rotate<br>
+      ↓ : soft drop<br>
+      Space : hard drop
+    </div>
+  </div>
+
+  <div style="flex:1; min-width:220px;">
+    <div class="box">
+      <h3>🎮 Live Commentary (Esports)</h3>
+      <div id="commentaryBox">Commentary will appear here once the game starts...</div>
+      <div class="move-count" id="moveCount"></div>
+    </div>
+    <div class="box">
+      <h3>Commentary Log</h3>
+      <div class="history" id="historyLog">(none yet)</div>
+    </div>
+    <details>
+      <summary>Debug: last prompt sent to LLM</summary>
+      <textarea class="debug" id="promptDebug" readonly></textarea>
+    </details>
+  </div>
+
+</div>
+
+<!-- type="module" is what tells the browser / Vite this uses ES imports -->
+<script type="module" src="/src/main.js"></script>
+
+</body>
+</html>
