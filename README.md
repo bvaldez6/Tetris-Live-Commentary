@@ -1,6 +1,6 @@
 [README (1).md](https://github.com/user-attachments/files/26598067/README.1.md)
 # Tetris Live Commentary — Setup Guide
-Valdez · Tarango · Andrade · Spring 2025
+Valdez · Tarango · Andrade · Spring 2026
 
 ---
 
