@@ -6,7 +6,7 @@
 // ─────────────────────────────────────────────────────────────────
 
 import { initTetris, startTetrisGame, toggleTetrisPause, getBoardState } from './tetris.js';
-import { initCommentary, resetCommentary, triggerCommentary, testConnection, setCommentMode } from './commentary.js';
+import { initCommentary, resetCommentary, triggerCommentary, testConnection, setCommentMode, setCommentStyle } from './commentary.js';
 
 // ── Canvas elements ──
 const boardCanvas = document.getElementById('boardCanvas');
@@ -43,3 +43,11 @@ window.startGame = function () {
 window.togglePause      = () => toggleTetrisPause();
 window.testConnection   = () => testConnection();
 window.setCommentMode   = (val) => setCommentMode(val);
+window.setCommentStyle  = (style, el) => {
+  setCommentStyle(style);
+  // Update active pill styling
+  document.querySelectorAll('.style-btn').forEach(b => {
+    b.className = 'style-btn';
+  });
+  if (el) el.classList.add(`active-${style}`);
+};

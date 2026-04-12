@@ -1,20 +1,42 @@
 // ─────────────────────────────────────────────────────────────────
 // src/commentary.js — LLM commentary module
-//
-// Owns: prompt building, Ollama API calls, queue/latest mode logic,
-//       updating commentary DOM elements.
-//
-// Does NOT know about Tetris game internals.
-// Gets board state via the callback passed to initCommentary().
 // ─────────────────────────────────────────────────────────────────
 
-const ESPORTS_SYSTEM =
-  `You are an energetic esports broadcast commentator for a live Tetris tournament. ` +
-  `Be dramatic and exciting. Comment on what's actually happening — do not repeat the ` +
-  `raw numbers directly, interpret them naturally as a commentator would. Keep it to 1-3 sentences.`;
+// ── All commentary styles ──
+const STYLES = {
+  esports: {
+    label: '🎮 Esports',
+    system:
+      `You are an energetic esports broadcast commentator for a live Tetris tournament. ` +
+      `Be dramatic, hype, and exciting. Use esports lingo. Comment on what's actually ` +
+      `happening — do not just repeat numbers. Keep it to 1-3 sentences.`,
+  },
+  coaching: {
+    label: '🧠 Coaching',
+    system:
+      `You are a calm, analytical Tetris coach focused on strategy and improvement. ` +
+      `Point out what the player is doing well or what they should fix. Reference the ` +
+      `board state naturally — no raw numbers. Keep it to 1-3 sentences.`,
+  },
+  humorous: {
+    label: '😄 Humorous',
+    system:
+      `You are a witty, light-hearted Tetris commentator who loves puns and wordplay. ` +
+      `Make jokes about what's happening on the board but stay grounded in the actual ` +
+      `game state. Never invent events. Keep it to 1-3 sentences.`,
+  },
+  factual: {
+    label: '📊 Factual',
+    system:
+      `You are a neutral Tetris analyst providing concise, factual descriptions of the ` +
+      `game state. Describe what is happening clearly and objectively. ` +
+      `No invented events. Keep it to 1-2 sentences.`,
+  },
+};
 
 // ── Module state ──
-let commentMode     = 'latest';
+let commentStyle    = 'esports';  // which style is active
+let commentMode     = 'latest';   // 'latest' | 'queue'
 let commentaryBusy  = false;
 let pendingEvent    = null;
 let commentQueue    = [];
@@ -42,6 +64,16 @@ export function setCommentMode(val) {
   pendingEvent = null;
   commentQueue = [];
   updateQueueStatus();
+}
+
+export function setCommentStyle(style) {
+  if (!STYLES[style]) return;
+  commentStyle = style;
+  // Update dot color in meta bar if it exists
+  const dot = document.getElementById('styleDot');
+  if (dot) { dot.className = `style-dot dot-${style}`; }
+  const styleLabel = document.getElementById('styleLabel');
+  if (styleLabel) styleLabel.textContent = STYLES[style].label;
 }
 
 export function triggerCommentary(event) {
@@ -81,10 +113,10 @@ export async function testConnection() {
     const d = await res.json();
     let r = (d.message?.content || d.response || '')
       .replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
-    st.textContent = `✓ Connected! Model said: "${r.slice(0, 60)}"`;
+    st.textContent = `✓ Connected — ${r.slice(0, 60)}`;
     st.className = 'ok';
   } catch (e) {
-    st.textContent = `✗ Error: ${e.message}`;
+    st.textContent = `✗ ${e.message}`;
     st.className = 'err';
   }
 }
@@ -94,8 +126,9 @@ export async function testConnection() {
 // ─────────────────────────────────────────────
 
 function buildPrompt(event) {
-  const state = getGameState();
-  const enc   = encodeBinary(state.binary);
+  const state  = getGameState();
+  const enc    = encodeBinary(state.binary);
+  const style  = STYLES[commentStyle];
 
   const gridLines = state.binary.map((row, i) =>
     `r${String(i).padStart(2, '0')}: ${row.join(' ')}`
@@ -113,10 +146,10 @@ function buildPrompt(event) {
     `max_col_height: ${enc.maxColHeight}/20\n` +
     `holes: ${enc.holes}\n` +
     `col_heights: [${enc.colHeights.join(',')}]\n\n` +
-    `[TASK] Generate live esports Tetris commentary based on the above state. ` +
-    `Do not just read out the numbers — interpret them dramatically as a commentator. 1-3 sentences.`;
+    `[TASK] Generate live Tetris commentary in your assigned style. ` +
+    `Interpret the state naturally — do not just recite numbers. 1-3 sentences.`;
 
-  return { prompt, system: ESPORTS_SYSTEM };
+  return { prompt, system: style.system };
 }
 
 function encodeBinary(binary) {
@@ -187,9 +220,17 @@ async function runCommentary({ prompt, system }, event) {
     box.textContent = text;
     box.className = '';
     commentaryCount++;
-    document.getElementById('moveCount').textContent =
-      `Commentary #${commentaryCount} | event: ${event}` +
-      (commentMode === 'queue' && commentQueue.length > 0 ? ` | ${commentQueue.length} queued` : '');
+
+    const meta = document.getElementById('commentaryMeta');
+    if (meta) {
+      meta.innerHTML =
+        `<span class="style-dot dot-${commentStyle}" id="styleDot"></span>` +
+        `<span id="styleLabel">${STYLES[commentStyle].label}</span>` +
+        `&nbsp;·&nbsp; #${commentaryCount}` +
+        `&nbsp;·&nbsp; ${event}` +
+        (commentMode === 'queue' && commentQueue.length > 0 ? `&nbsp;·&nbsp; ${commentQueue.length} queued` : '');
+    }
+
     addToHistory(event, text);
   } catch (e) {
     box.textContent = `⚠ ${e.message} — is Ollama running?`;
@@ -213,22 +254,26 @@ async function runCommentary({ prompt, system }, event) {
 
 function updateQueueStatus() {
   const el = document.getElementById('queueStatus');
+  if (!el) return;
   if (commentMode === 'queue') {
     el.textContent = commentaryBusy
-      ? `Queue: ${commentQueue.length} waiting | generating...`
-      : `Queue: ${commentQueue.length} waiting | idle`;
+      ? `${commentQueue.length} waiting · generating...`
+      : `${commentQueue.length} waiting · idle`;
   } else {
     el.textContent = commentaryBusy
-      ? `Generating...${pendingEvent ? ' (1 pending — will use latest board when done)' : ''}`
-      : 'Idle';
+      ? `generating...${pendingEvent ? ' · 1 pending' : ''}`
+      : 'idle';
   }
 }
 
 function addToHistory(event, text) {
   const log = document.getElementById('historyLog');
-  if (log.textContent === '(none yet)') log.innerHTML = '';
+  if (!log) return;
+  if (log.dataset.empty === 'true') { log.innerHTML = ''; log.dataset.empty = 'false'; }
   const entry = document.createElement('div');
   entry.className = 'history-entry';
-  entry.textContent = `[${event}] ${text}`;
+  entry.innerHTML =
+    `<span class="entry-event">${event} · ${STYLES[commentStyle].label}</span>` +
+    `<span class="entry-text">${text}</span>`;
   log.insertBefore(entry, log.firstChild);
 }
