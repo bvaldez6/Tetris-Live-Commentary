@@ -34,8 +34,11 @@ initTetris(
 window.startGame = function () {
   resetCommentary();
   document.getElementById('commentaryBox').textContent = 'Game started — commentary incoming...';
-  document.getElementById('historyLog').innerHTML = '(none yet)';
-  document.getElementById('moveCount').textContent = '';
+  const log = document.getElementById('historyLog');
+  log.innerHTML = '<div style="font-family:\'Share Tech Mono\',monospace; font-size:10px; color:var(--muted); padding:4px 0;">No commentary yet — start a game.</div>';
+  log.dataset.empty = 'true';
+  const meta = document.getElementById('commentaryMeta');
+  if (meta) { meta.style.display = 'none'; meta.innerHTML = ''; }
   document.getElementById('gameOverMsg').style.display = 'none';
   startTetrisGame();
 };
